@@ -19,7 +19,9 @@
         v-for="tarefa in tarefasAFazer"
         :key="tarefa.id"
         :tarefa="tarefa"
-        @editar="selecionarEdicao"/>
+        @editar="selecionarEdicao"
+        @concluir="concluirTarefa({ tarefa: $event })"
+        @deletar="confirmarRemocaoTarefa"/>
     </ul>
 
     <p v-else>Nenhuma tarefa a fazer.</p>
@@ -30,13 +32,19 @@
         v-for="tarefa in tarefasConcluidas"
         :key="tarefa.id"
         :tarefa="tarefa"
-        @editar="selecionarEdicao"/>
+        @editar="selecionarEdicao"
+        @concluir="concluirTarefa({ tarefa: $event })"
+        @deletar="confirmarRemocaoTarefa"/>
     </ul>
 
     <p v-else>Nenhuma tarefa concluída.</p>
 
     <TarefaSalvar v-if="exibirFormulario"
-      :tarefa="tarefaSelecionada"/>
+      @salvar="salvarTarefa"/>
+    
+    <div class="alert alert-danger" v-if="erro">
+      {{ erro.message }}
+    </div>
   </div>
 </template>
 
@@ -45,6 +53,15 @@ import Register from '../_store/_register';
 import TarefaSalvar from './TarefaSalvar';
 import TarefasListaItem from './TarefasListaItem';
 import { createNamespacedHelpers } from 'vuex';
+import {
+  LISTAR_TAREFAS,
+  CONCLUIR_TAREFA,
+  DELETAR_TAREFA,
+  RESETAR_TAREFA,
+  SELECIONAR_TAREFA,
+  CRIAR_TAREFA,
+  EDITAR_TAREFA 
+} from '../_store/_action-types';
 
 const { mapState, mapGetters, mapActions } = createNamespacedHelpers('tarefas');
 
@@ -55,12 +72,14 @@ export default {
   },
   data() {
     return {
-      exibirFormulario: false,
-      tarefaSelecionada: undefined
+      exibirFormulario: false
     }
   },
   computed: {
-    ...mapState(['tarefas']),
+    ...mapState([
+      'tarefaSelecionada',
+      'erro'
+    ]),
     ...mapGetters([
       'tarefasAFazer',
       'tarefasConcluidas',
@@ -69,13 +88,21 @@ export default {
   },
   created() {
     Register(this.$store);
-    setTimeout(async () => await this.listarTarefas(), 1000);
+    this.listarTarefas();
   },
   methods: {
-    ...mapActions(['listarTarefas']),
+    ...mapActions([
+      LISTAR_TAREFAS,
+      CONCLUIR_TAREFA,
+      DELETAR_TAREFA,
+      SELECIONAR_TAREFA,
+      RESETAR_TAREFA,
+      CRIAR_TAREFA,
+      EDITAR_TAREFA
+    ]),
     exibirFormCriar() {
       if(this.tarefaSelecionada) {
-        this.tarefaSelecionada = undefined;
+        this[RESETAR_TAREFA]();
         return;
       }
 
@@ -83,11 +110,21 @@ export default {
     },
     selecionarEdicao(tarefa) {
       this.exibirFormulario = true;
-      this.tarefaSelecionada = tarefa;
+      this[SELECIONAR_TAREFA]({ tarefa });
     },
     resetar() {
       this.exibirFormulario = false;
-      this.tarefaSelecionada = undefined;
+      this[RESETAR_TAREFA]();
+    },
+    confirmarRemocaoTarefa(tarefa) {
+      const confirm = window.confirm(`Deseja deletar a tarefa "${tarefa.titulo}"?`);
+      if(confirm) {
+        this[DELETAR_TAREFA]({ tarefa });
+      }
+    },
+    async salvarTarefa({ operation, tarefa }) {
+      await this[operation]({ tarefa });
+      this.resetar();
     }
   }
 }
